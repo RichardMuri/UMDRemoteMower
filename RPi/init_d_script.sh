@@ -1,8 +1,6 @@
 #!/bin/sh
-# kFreeBSD do not accept scripts as interpreters, using #!/bin/sh and sourcing.
-if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
-    set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
-fi
+# /etc/init.d/lawnmower_control
+#
 ### BEGIN INIT INFO
 # Provides:          lawnmower_control
 # Required-Start:    $remote_fs $syslog
@@ -16,19 +14,21 @@ fi
 ### END INIT INFO
 
 # Author: Richard Muri <muri.engineering@gmail.com>
-#
-# Please remove the "Author" lines above and replace them
-# with your own name if you copy and modify this script.
+# This file needs to be placed in /etc/init.d/ to 
+# run on start up for the Raspberry Pi
 
 case "$1" in 
     start)
         echo "Starting lawnmower_control"
-        
         ;;
     stop)
         echo "Stopping lawnmower_control"
         killall lawnmower_control
         ;;
+	force-reload|restart)
+		$0 stop
+		$0 start
+		;;
     *)
         echo "Usage: /etc/init.d/lawnmower_control start|stop"
         exit 1
