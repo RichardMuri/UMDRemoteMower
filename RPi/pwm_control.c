@@ -29,9 +29,9 @@
 */
 
 // Relay controls power of mower, pwd2d is pwm channel 2 direction, pwm2 is pwm channel 2
-bool relay, pwd2d, pwm1d;
+bool relay, pwm2d, pwm1d;
 int pwm2, pwm1;
-unsigned char buf[BUF_SIZE]; // String buffer that holds input from serial pins
+char buf[BUF_SIZE]; // String buffer that holds input from serial pins
 
 /*
 Test sequence of &g:?@ sets PWM1D, PWM2D, and RELAY to true and PWM1 to 63, PWM2 58
