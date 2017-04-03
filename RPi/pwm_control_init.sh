@@ -1,14 +1,14 @@
 #!/bin/sh
-# /etc/init.d/lawnmower_control
+# /etc/init.d/pwm_control
 #
 ### BEGIN INIT INFO
-# Provides:          lawnmower_control
+# Provides:          pwm_control
 # Required-Start:    $remote_fs $syslog
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: Example initscript
-# Description:       Initscript for lawnmower_control;
+# Short-Description: Initscript for pwm_control
+# Description:       Initscript for pwm_control;
 # 					 Reads serial pins using I2C and adjusts
 #					 PWM on pins 12 and 18 to control motors
 ### END INIT INFO
@@ -19,16 +19,13 @@
 
 case "$1" in 
     start)
-        echo "Starting lawnmower_control"
+        echo "Starting pwm_control\n"
+		/home/pwm_control
         ;;
     stop)
-        echo "Stopping lawnmower_control"
-        killall lawnmower_control
+        echo "Stopping pwm_control"
+        killall pwm_control
         ;;
-	force-reload|restart)
-		$0 stop
-		$0 start
-		;;
     *)
         echo "Usage: /etc/init.d/lawnmower_control start|stop"
         exit 1

@@ -25,7 +25,7 @@
 	
 	This intended to be used in conjunction with an init script installed in 
 	/etc/init.d
-
+	Compile with the following command: gcc -Wall -pthread -o prog pwm_control.c -lpigpio -lrt
 */
 
 // Relay controls power of mower, pwd2d is pwm channel 2 direction, pwm2 is pwm channel 2
@@ -124,7 +124,12 @@ int main(int argc, char *argv[])
 			pwm1, pwm2, pwm1d, pwm2d, relay);
 		
 	   // Set PWM directions
+	   gpioWrite(PWM_1D, pwm1d);
+	   gpioWrite(PWM_2D, pwm2d);
 	   
+	   // Set blade mode
+	   gpioWrite(RELAY, relay);
+	   	   
 	   // Set PWM channel speeds
 	   gpioPWM(PWM_1, pwm1);
 	   gpioPWM(PWM_2, pwm2);
