@@ -4,7 +4,9 @@
 #include <unistd.h>
 #include <signal.h>
 #include <pigpio.h>
+//#include "accel.h"
 
+// Pi pin declarations
 #define PWM_1 12
 #define PWM_1D 16
 #define PWM_2 13
@@ -12,6 +14,7 @@
 #define FREQ 4000
 #define RELAY 26
 
+// Serial communication declarations
 #define SERTTY "/dev/ttyAMA0"
 #define BAUD_RATE 115200
 #define BUF_SIZE 100
@@ -33,6 +36,7 @@ bool relay, pwm2d, pwm1d;
 int pwm2, pwm1;
 char buf[BUF_SIZE]; // String buffer that holds input from serial pins
 
+
 /*
 Test sequence of &g:?@ sets PWM1D, PWM2D, and RELAY to true and PWM1 to 63, PWM2 58
     buf[0] = 0x26;
@@ -53,21 +57,32 @@ void parseBuf(void)
    if(buf[0] != '&' || buf[4] != '@')
    {
 	   printf("Error: message header and footer not found in buffer\n");
+	   return;
    }
-   
+   else
+   {
 	pwm1 = buf[3] & 0xFF;
 	pwm2 = buf[2] & 0xFF;
 	pwm1d = buf[1] & 0x01;
 	pwm2d = buf[1] & 0x02;
 	relay = buf[1] & 0x03;
-	
+   }
 }
 
 int main(int argc, char *argv[])
 {
-   int i, g, shand; // shand is serial handle
-   unsigned test = 80;
-      
+   // Serial port declarations
+   int shand; // shand is serial handle
+   
+   // I2C declarations
+   int fd; // file descriptor for accelerometer I2C port
+   char buf2[16]; // Buffer that holds input from I2C pins
+   int count, b;
+   short x, y, z;
+   float xa, ya, za;
+   
+   initAccelerometer(fd);
+   
    // Prevents the operating system from using the serial port
    if(system("sudo systemctl stop serial-getty@ttyAMA0.service") < 0)
    {
@@ -133,6 +148,8 @@ int main(int argc, char *argv[])
 	   // Set PWM channel speeds
 	   gpioPWM(PWM_1, pwm1);
 	   gpioPWM(PWM_2, pwm2);
+	   
+	   readAccelerometer(&fd, &buf2, &xa, &ya, &za)
 	   
 	   buf[0] = '\0'; //clear the buffer
 	   sleep(5);	   
