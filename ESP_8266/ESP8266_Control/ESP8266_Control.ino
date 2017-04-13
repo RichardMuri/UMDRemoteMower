@@ -1,4 +1,5 @@
 #include <ESP8266WiFi.h>
+#include <WiFiUdp.h>
 extern "C" {
 #include "user_interface.h"
 }
@@ -16,9 +17,12 @@ const int BAUD = 115200;
 const int TIME = 1000; // Interrupt timer period in ms
 boolean FLAG = false; // Flag set by interrupt service routine
 
-WiFiServer server(80);
-WiFiClient client;
+WiFiUDP Udp;
+unsigned int localUdpPort = 4210;  // local port to listen on
+//WiFiServer server(7);
+//WiFiClient serverClient;
 os_timer_t myTimer;
+char reply[] = "Penis\r\n";
 char buf[10]; // Buffer to store client requests. See pwm_control.c for actual commands
 char accel_reading[1]; // Reading from accelerometer as communicated by Pi via serial
 
@@ -28,6 +32,7 @@ char accel_reading[1]; // Reading from accelerometer as communicated by Pi via s
 // The lawnmower is turned off on disconnect for safety reasons
 void timerCallback(void *pArg) {
 
+  //Serial.println(WiFi.softAPgetStationNum());
 	if(!FLAG) // If flag is already set, service routine must already be in progress
 	{
 	  // Is there a device connected to our access point?
@@ -90,8 +95,10 @@ void setup()
   initHardware();
   // Turns on WiFi access point
   setupWiFi();
+  Udp.begin(localUdpPort);
+  Serial.printf("Now listening at IP %s, UDP port %d\n", WiFi.localIP().toString().c_str(), localUdpPort);
   // Built in function to start TCP server
-  server.begin();
+  //server.begin();
   // Start timer functions
   user_init();
 }
@@ -100,29 +107,31 @@ void loop()
 {
   // If flag is set, client computer is disconnected and needs to be serviced
   if(FLAG)
+  {
 	  interruptService();
-  
-  // Connect the client to an available server port
-  client = server.available();
+  }
+
+  udpcrap();
+  /*
   // If no client exists, restart the loop and try again
-  if(!client)
+  if(!serverClient)
     return;
 
   // Read the first five bytes of the request
-  if (client.available() >= 5)
+  if (serverClient.available() >= 5)
   {
-    client.readBytes(buf, 5);
+    Serial.println("Reading client bytes");
+    serverClient.readBytes(buf, 5);
 	// Serial is connected to the RaspberryPi that controls the lawnmower system
     Serial.println(buf);
   }
   
   Serial.readBytes(accel_reading, sizeof(char));
-  client.print("The accelerometer reading is: ");
-  client.println(accel_reading);
+  serverClient.print("The accelerometer reading is: ");
+  serverClient.println(accel_reading);
   delay(0);
-
-  // The client will actually be disconnected 
-  // when the function returns and 'client' object is destroyed
+  */
+  
 }
 
 // create WiFi object that can be accessed at 192.168.4.1
@@ -144,6 +153,27 @@ void initHardware()
   Serial.begin(BAUD);
 }
 
+void udpcrap()
+{
+  int packetSize = Udp.parsePacket();
+  if (packetSize)
+  {
+    // receive incoming UDP packets
+    Serial.printf("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
+    int len = Udp.read(buf, 10);
+    if (len > 0)
+    {
+      buf[len] = 0;
+    }
+    Serial.printf("UDP packet contents: %s\n", buf);
+
+    // send back a reply, to the IP address and port we got the packet from
+    Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+    Udp.write(reply);
+    Udp.endPacket();
+  }
+}
+
 // This routine is called when the client computer gets disconnected from ESP8266
 void interruptService()
 {
@@ -160,19 +190,21 @@ void interruptService()
     buf[5] = '\0';
     Serial.println(buf);
 
+    /*
     // Destroy the broken client object
-    if(client)
-      client.stop();
-    
+    if(serverClient)
+      serverClient.stop();
+    */
     // Restart the WiFi access point and server
     setupWiFi();
     Serial.println("Restarting server");
-    server.begin();
-    while(!client.connected())
+    //server.begin();
+    while(WiFi.softAPgetStationNum() < 1)
     {
       delay(1000);
       Serial.println("Attempting to reconnect to client");
-      client = server.available();
     }
+  //serverClient = server.available();
+  Serial.println("Successfully reconnected");
 	FLAG = false;
 }
