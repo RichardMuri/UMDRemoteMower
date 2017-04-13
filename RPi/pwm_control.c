@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <pigpio.h>
-//#include "accel.h"
+#include "accel.h"
 
 // Pi pin declarations
 #define PWM_1 12
@@ -24,11 +24,11 @@
 	read an ADXL345 accelerometer, communicate with an ESP8266, and control a
 	relay attached to a lawnmower. All pinouts are listed in BCM format
 	(see https://pinout.xyz). The pigpio library is used
-	(See abyz.co.uk/rpi/pigpio/cif.html).
+	(See https://abyz.co.uk/rpi/pigpio/cif.html).
 	
 	This intended to be used in conjunction with an init script installed in 
 	/etc/init.d
-	Compile with the following command: gcc -Wall -pthread -o prog pwm_control.c -lpigpio -lrt
+	Compile with the following command: gcc -Wall -pthread -o pwm_control pwm_control.c -lpigpio -lrt
 */
 
 // Relay controls power of mower, pwd2d is pwm channel 2 direction, pwm2 is pwm channel 2
@@ -47,25 +47,98 @@ Test sequence of &g:?@ sets PWM1D, PWM2D, and RELAY to true and PWM1 to 63, PWM2
     buf[5] = '\0';
 */
 
-// Function to parse serial information. Serial commands are a sequence of 5 characters
-// The first char is an &, the second uses the rightmost bit to represent pwm1d, next bit
-// to represent pwd2d, third bit relay status. The third char is PWM2 speed from 0-255, 
-// fourth char PWM1 speed, and fifth char is an @. The global buffer is parsed and broken
+// Function to parse serial information. Serial commands are a sequence of 7 characters
+// The 0th char is an &, the first is a hex value from 0-7 with the leftmost bit representing
+// pwm2d, the middle bit pwm1d, and the rightmost bit representing relay. The second and third
+// are hex 00-FF describing PWM2. The fourth and fifth chars are 0x00-FF representing PWM1. The sixth
+// character is an & representing the end of message. The global buffer is parsed and broken
 // into global control variables.
 void parseBuf(void)
 {
-   if(buf[0] != '&' || buf[4] != '@')
+   if(buf[0] != '&' || buf[6] != '@')
    {
 	   printf("Error: message header and footer not found in buffer\n");
 	   return;
    }
    else
    {
-	pwm1 = buf[3] & 0xFF;
-	pwm2 = buf[2] & 0xFF;
-	pwm1d = buf[1] & 0x01;
-	pwm2d = buf[1] & 0x02;
-	relay = buf[1] & 0x03;
+	   // Split buf into temporary arrays
+	   char tmp1[3], tmp2[3];
+	   strncpy(tmp1, &buf[4], 2); 
+	   strncpy(tmp2, &buf[2], 2);
+	   
+	   // Convert temporary array from hex char to integer
+	   pwm2 = strtol(tmp1, '\0', 16); // chars 2+3 are PWM2
+	   pwm1 = strtol(tmp2, '\0', 16); // chars 4+5 are PWM1
+	   
+	   // If either direction is out of range, reset it to 0
+	   if(pwm2 > 255 || pwm2 < 0)
+	   {
+		   pwm2 = 0;
+	   }
+	   
+	   if(pwm1 > 255 || pwm1 < 0)
+	   {
+		   pwm1 = 0;
+	   }
+	   
+	   // Char 1 is a value from 0-7 describing 
+	   switch(buf[1])
+	   {
+		   case '0': // 000
+		   		   relay = 0;
+				   pwm2d = 0;
+		           pwm1d = 0;
+		   break;
+		   
+		   case '1': // 001
+		   		   relay = 0;
+				   pwm2d = 0;
+		           pwm1d = 1;
+		   break;
+		   
+		   case '2': // 010
+				   relay = 0;
+				   pwm2d = 1;
+		           pwm1d = 0;
+		   break;
+		   
+		   case '3': // 011
+		   		   relay = 0;
+				   pwm2d = 1;
+		           pwm1d = 1;
+		   break;
+		   
+		   case '4': // 100
+		   		   relay = 1;
+				   pwm2d = 0;
+		           pwm1d = 0;
+		   break;
+		   
+		   case '5': // 101
+		   		   relay = 1;
+				   pwm2d = 0;
+		           pwm1d = 1;
+		   break;
+		   
+		   case '6': // 110
+		   		   relay = 1;
+				   pwm2d = 1;
+		           pwm1d = 0;
+		   break;
+		   
+		   case '7': // 111
+		   		   relay = 1;
+				   pwm2d = 1;
+		           pwm1d = 1;
+		   break;
+		   
+		   default: // Don't recognize the character, turn everything off
+		   relay = 0;
+		   pwm2d = 0;
+		   pwm1d = 0;
+	   
+		}
    }
 }
 
@@ -77,8 +150,6 @@ int main(int argc, char *argv[])
    // I2C declarations
    int fd; // file descriptor for accelerometer I2C port
    char buf2[16]; // Buffer that holds input from I2C pins
-   int count, b;
-   short x, y, z;
    float xa, ya, za;
    
    initAccelerometer(fd);
@@ -104,6 +175,7 @@ int main(int argc, char *argv[])
 	   printf("Error: Unable to set PWM_1\n");
 	   return -1;
    }
+   
    // Set the PWM frequency on PWM_2 to a predefined value (The intended motor 
    // drivers allow up to 20kHz)
    if (gpioSetPWMfrequency(PWM_2, FREQ) < 0)
@@ -124,19 +196,22 @@ int main(int argc, char *argv[])
    while(1)
    {
 	   printf("Reading serial buffer:\n");
-	   // Check number of bytes available on serial port and read if >10
+	   // Check number of bytes available on serial port and read if >7
 	   // Output is stored in buf
-	   if(serDataAvailable(shand) >= 1)
+	   if(serDataAvailable(shand) >= 7)
 	   {
 		   serRead(shand, &buf[0], BUF_SIZE);
 		   parseBuf();
 	   }
 	   
+	   // Store accelerometer angles in xa, ya, and za
+	   readAccelerometer(fd, buf2, &xa, &ya, &za);
+	   
 	   // Debugging information
-	   //serWriteByte(shand, test);
 	   printf("The serial buffer reads: %s\n", buf);
-	   printf("PWM1: %d, PWM2: %d, PWM1d: %d, PWM2d: %d, RELAY: %d", 
+	   printf("PWM1: %d, PWM2: %d, PWM1d: %d, PWM2d: %d, RELAY: %d\n", 
 			pwm1, pwm2, pwm1d, pwm2d, relay);
+	   printf("The accelerometer reads x: %lf, y: %lf, z: %lf\n\n", xa, ya, za);
 		
 	   // Set PWM directions
 	   gpioWrite(PWM_1D, pwm1d);
@@ -149,11 +224,8 @@ int main(int argc, char *argv[])
 	   gpioPWM(PWM_1, pwm1);
 	   gpioPWM(PWM_2, pwm2);
 	   
-	   readAccelerometer(&fd, &buf2, &xa, &ya, &za)
-	   
 	   buf[0] = '\0'; //clear the buffer
-	   sleep(5);	   
-		   
+	   sleep(5); // brief pause
    }
 }   
 
