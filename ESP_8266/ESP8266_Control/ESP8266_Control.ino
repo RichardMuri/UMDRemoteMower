@@ -17,12 +17,11 @@ const int BAUD = 115200;
 const int TIME = 1000; // Interrupt timer period in ms
 boolean FLAG = false; // Flag set by interrupt service routine
 
-WiFiUDP Udp;
-unsigned int localUdpPort = 4210;  // local port to listen on
-//WiFiServer server(7);
-//WiFiClient serverClient;
+WiFiUDP Udp; // UDP server
+const unsigned int localUdpPort = 4210;  // local port to listen on
+
 os_timer_t myTimer;
-char reply[] = "Penis\r\n";
+char reply[] = "ACK\r\n"; // Default response character
 char buf[10]; // Buffer to store client requests. See pwm_control.c for actual commands
 char accel_reading[1]; // Reading from accelerometer as communicated by Pi via serial
 
@@ -93,12 +92,14 @@ void setup()
 {
   // Establishes proper baud rate
   initHardware();
+  
   // Turns on WiFi access point
   setupWiFi();
+
+  // Launch UDP server
   Udp.begin(localUdpPort);
-  Serial.printf("Now listening at IP %s, UDP port %d\n", WiFi.localIP().toString().c_str(), localUdpPort);
-  // Built in function to start TCP server
-  //server.begin();
+  //Serial.printf("Now listening at IP %s, UDP port %d\n", WiFi.localIP().toString().c_str(), localUdpPort);
+
   // Start timer functions
   user_init();
 }
@@ -110,28 +111,11 @@ void loop()
   {
 	  interruptService();
   }
-
-  udpcrap();
-  /*
-  // If no client exists, restart the loop and try again
-  if(!serverClient)
-    return;
-
-  // Read the first five bytes of the request
-  if (serverClient.available() >= 5)
-  {
-    Serial.println("Reading client bytes");
-    serverClient.readBytes(buf, 5);
-	// Serial is connected to the RaspberryPi that controls the lawnmower system
-    Serial.println(buf);
-  }
+  // If accelerometer output is added, it will be on the line below this comment
+  //Serial.readBytes(accel_reading, sizeof(char));
   
-  Serial.readBytes(accel_reading, sizeof(char));
-  serverClient.print("The accelerometer reading is: ");
-  serverClient.println(accel_reading);
+  udpRecieveSend();
   delay(0);
-  */
-  
 }
 
 // create WiFi object that can be accessed at 192.168.4.1
@@ -153,19 +137,19 @@ void initHardware()
   Serial.begin(BAUD);
 }
 
-void udpcrap()
+void udpRecieveSend()
 {
   int packetSize = Udp.parsePacket();
   if (packetSize)
   {
     // receive incoming UDP packets
-    Serial.printf("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
+    //Serial.printf("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
     int len = Udp.read(buf, 10);
     if (len > 0)
     {
       buf[len] = 0;
     }
-    Serial.printf("UDP packet contents: %s\n", buf);
+    Serial.printf(buf);
 
     // send back a reply, to the IP address and port we got the packet from
     Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
@@ -177,34 +161,29 @@ void udpcrap()
 // This routine is called when the client computer gets disconnected from ESP8266
 void interruptService()
 {
-    // 0x26 is an @ used as a header
-    // 0x30 will set the mower off, and the direction of both wheels to forwards
-    // 0x00 will set wheel two to off
-    // 0x00 will set wheel one to off
-    // 0x40 is an & used as an EOM
-    buf[0] = 0x26;
-    buf[1] = 0x30;
-    buf[2] = 0x00;
-    buf[3] = 0x00;
-    buf[4] = 0x40;
-    buf[5] = '\0';
+    // & used as a header
+    // The second byte is 0 to turn off relay and reset wheel directions
+    // Bytes 3 and 4 represent 0x00 to turn Wheel 2 off
+    // Bytes 5 and 6 represent 0x00 to turn Wheel 1 off
+    // @ used as an EOM
+    buf[0] = '&';
+    buf[1] = '0';
+    buf[2] = '0';
+    buf[3] = '0';
+    buf[4] = '0';
+    buf[5] = '0';
+    buf[6] = '@';
+    buf[7] = '\0';
     Serial.println(buf);
 
-    /*
-    // Destroy the broken client object
-    if(serverClient)
-      serverClient.stop();
-    */
-    // Restart the WiFi access point and server
+    // Restart the WiFi access point
     setupWiFi();
-    Serial.println("Restarting server");
-    //server.begin();
+
     while(WiFi.softAPgetStationNum() < 1)
     {
       delay(1000);
-      Serial.println("Attempting to reconnect to client");
+      //Serial.println("Attempting to reconnect to client");
     }
-  //serverClient = server.available();
   Serial.println("Successfully reconnected");
 	FLAG = false;
 }
