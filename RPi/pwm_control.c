@@ -18,6 +18,8 @@
 #define SERTTY "/dev/ttyAMA0"
 #define BAUD_RATE 115200
 #define BUF_SIZE 100
+
+#define DEBUG_MODE 1 // Set to 0 when using for real
 /* 
 	Author: Richard Muri (rmuri@umassd.edu)
 	This program is written for the Raspberry Pi 2 to control 2 dc motors,
@@ -53,11 +55,13 @@ Test sequence of &g:?@ sets PWM1D, PWM2D, and RELAY to true and PWM1 to 63, PWM2
 // are hex 00-FF describing PWM2. The fourth and fifth chars are 0x00-FF representing PWM1. The sixth
 // character is an & representing the end of message. The global buffer is parsed and broken
 // into global control variables.
-void parseBuf(void)
+void parseBuf(int shand)
 {
    if(buf[0] != '&' || buf[6] != '@')
    {
 	   printf("Error: message header and footer not found in buffer\n");
+	   // Buffer had garbage in it, likely we need to clear the rest of the buffer
+	   serRead(shand, &buf[0], serDataAvailable(shand));
 	   return;
    }
    else
@@ -144,15 +148,23 @@ void parseBuf(void)
 
 int main(int argc, char *argv[])
 {
+   // Start lawnmower control variables as off
+   relay = 0;
+   pwm1d = 0;
+   pwm2d = 0;
+   pwm1 = 0;
+   pwm2 = 0;
+   
    // Serial port declarations
    int shand; // shand is serial handle
    
    // I2C declarations
    int fd; // file descriptor for accelerometer I2C port
    char buf2[16]; // Buffer that holds input from I2C pins
-   float xa, ya, za;
+   float xa, ya, za; // X, Y, and Z angles
    
-   initAccelerometer(fd);
+   fd = initAccelerometer();
+   //printf("In main fd is %d\n", fd);
    
    // Prevents the operating system from using the serial port
    if(system("sudo systemctl stop serial-getty@ttyAMA0.service") < 0)
@@ -195,24 +207,29 @@ int main(int argc, char *argv[])
    // Begin main loop
    while(1)
    {
-	   printf("Reading serial buffer:\n");
+	   
 	   // Check number of bytes available on serial port and read if >7
 	   // Output is stored in buf
 	   if(serDataAvailable(shand) >= 7)
 	   {
+		   //printf("Had 7 bytes");
 		   serRead(shand, &buf[0], BUF_SIZE);
 		   parseBuf();
 	   }
 	   
 	   // Store accelerometer angles in xa, ya, and za
+	   //printf("Reading accelerometer at file handle %d:\n", fd);
 	   readAccelerometer(fd, buf2, &xa, &ya, &za);
 	   
 	   // Debugging information
-	   printf("The serial buffer reads: %s\n", buf);
-	   printf("PWM1: %d, PWM2: %d, PWM1d: %d, PWM2d: %d, RELAY: %d\n", 
-			pwm1, pwm2, pwm1d, pwm2d, relay);
-	   printf("The accelerometer reads x: %lf, y: %lf, z: %lf\n\n", xa, ya, za);
-		
+	   if(DEBUG_MODE)
+	   {
+		   printf("The serial buffer reads: %s\n", buf);
+		   printf("PWM1: %d, PWM2: %d, PWM1d: %d, PWM2d: %d, RELAY: %d\n", 
+				pwm1, pwm2, pwm1d, pwm2d, relay);
+		   printf("The accelerometer reads x: %lf, y: %lf, z: %lf\n\n", xa, ya, za);
+	   }
+	   
 	   // Set PWM directions
 	   gpioWrite(PWM_1D, pwm1d);
 	   gpioWrite(PWM_2D, pwm2d);
@@ -225,7 +242,9 @@ int main(int argc, char *argv[])
 	   gpioPWM(PWM_2, pwm2);
 	   
 	   buf[0] = '\0'; //clear the buffer
-	   sleep(5); // brief pause
+	   
+	   usleep(1000); // wait for 1 ms 
+	   sleep(5); // brief pause for debugging
    }
 }   
 
