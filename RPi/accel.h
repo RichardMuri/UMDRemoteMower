@@ -100,5 +100,5 @@ void readAccelerometer(int fd, char *buf, float *xa, float *ya, float *za)
          *ya = (90.0 / 256.0) * (float) y;
          *za = (90.0 / 256.0) * (float) z;
     }
-	printf("Finished reading accelerometer\n");
+	//printf("Finished reading accelerometer\n");
 }

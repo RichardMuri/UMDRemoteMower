@@ -19,7 +19,7 @@
 #define BAUD_RATE 115200
 #define BUF_SIZE 100
 
-#define DEBUG_MODE 1 // Set to 0 when using for real
+#define DEBUG_MODE 0 // Set to 0 when using for real
 /* 
 	Author: Richard Muri (rmuri@umassd.edu)
 	This program is written for the Raspberry Pi 2 to control 2 dc motors,
@@ -38,17 +38,6 @@ bool relay, pwm2d, pwm1d;
 int pwm2, pwm1;
 char buf[BUF_SIZE]; // String buffer that holds input from serial pins
 
-
-/*
-Test sequence of &g:?@ sets PWM1D, PWM2D, and RELAY to true and PWM1 to 63, PWM2 58
-    buf[0] = 0x26;
-    buf[1] = 0x67;
-    buf[2] = 0x3A;
-    buf[3] = 0X3F;
-    buf[4] = 0x40;
-    buf[5] = '\0';
-*/
-
 // Function to parse serial information. Serial commands are a sequence of 7 characters
 // The 0th char is an &, the first is a hex value from 0-7 with the leftmost bit representing
 // pwm2d, the middle bit pwm1d, and the rightmost bit representing relay. The second and third
@@ -59,7 +48,10 @@ void parseBuf(int shand)
 {
    if(buf[0] != '&' || buf[6] != '@')
    {
-	   printf("Error: message header and footer not found in buffer\n");
+	   if(DEBUG_MODE)
+	   {
+		printf("Error: message header and footer not found in buffer\n");
+	   }
 	   // Buffer had garbage in it, likely we need to clear the rest of the buffer
 	   serRead(shand, &buf[0], serDataAvailable(shand));
 	   return;
@@ -214,7 +206,7 @@ int main(int argc, char *argv[])
 	   {
 		   //printf("Had 7 bytes");
 		   serRead(shand, &buf[0], BUF_SIZE);
-		   parseBuf();
+		   parseBuf(shand);
 	   }
 	   
 	   // Store accelerometer angles in xa, ya, and za
@@ -244,7 +236,10 @@ int main(int argc, char *argv[])
 	   buf[0] = '\0'; //clear the buffer
 	   
 	   usleep(1000); // wait for 1 ms 
-	   sleep(5); // brief pause for debugging
+	   if(DEBUG_MODE)
+	   {
+		sleep(5); // brief pause for debugging
+	   }
    }
 }   
 
