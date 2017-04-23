@@ -14,7 +14,7 @@ const int CHANNEL = 13; // Don't change this unless you know what you're doing
 // Hardware Definition //
 /////////////////////////
 const int BAUD = 115200;
-const int TIME = 1000; // Interrupt timer period in ms
+const int TIME = 2000; // Interrupt timer period in ms
 boolean FLAG = false; // Flag set by interrupt service routine
 
 WiFiUDP Udp; // UDP server
@@ -39,12 +39,17 @@ void timerCallback(void *pArg) {
 	  {
 		// Do nothing
 		//Serial.println("Client is connected");
+      return ;
 	  }
 	  else // No, set flag to trigger service routine in main loop
 	  {
 		FLAG = true;
 	  }
-	} 
+	}
+  else // Flag already set, do nothing more
+  {
+    return ;
+  } 
 }
 
 // Creates timer object and managers interrupt settings attached to timer
@@ -181,7 +186,7 @@ void interruptService()
 
     while(WiFi.softAPgetStationNum() < 1)
     {
-      delay(1000);
+      delay(2000);
       //Serial.println("Attempting to reconnect to client");
     }
   Serial.println("Successfully reconnected");
