@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <termios.h>
 #include <signal.h>
 #include <pigpio.h>
 #include "accel.h"
@@ -38,6 +39,16 @@ bool relay, pwm2d, pwm1d;
 int pwm2, pwm1;
 char buf[BUF_SIZE]; // String buffer that holds input from serial pins
 
+// Sets all lawnmower control globals to off
+void shutdown()
+{
+   relay = 0;
+   pwm1d = 0;
+   pwm2d = 0;
+   pwm1 = 0;
+   pwm2 = 0;
+}
+
 // Function to parse serial information. Serial commands are a sequence of 7 characters
 // The 0th char is an &, the first is a hex value from 0-7 with the leftmost bit representing
 // pwm2d, the middle bit pwm1d, and the rightmost bit representing relay. The second and third
@@ -53,7 +64,9 @@ void parseBuf(int shand)
 		printf("Error: message header and footer not found in buffer\n");
 	   }
 	   // Buffer had garbage in it, likely we need to clear the rest of the buffer
-	   serRead(shand, &buf[0], serDataAvailable(shand));
+	   tcflush(shand, TCIFLUSH);
+	   //serRead(shand, &buf[0], serDataAvailable(shand));
+	   shutdown();
 	   return;
    }
    else
@@ -141,11 +154,7 @@ void parseBuf(int shand)
 int main(int argc, char *argv[])
 {
    // Start lawnmower control variables as off
-   relay = 0;
-   pwm1d = 0;
-   pwm2d = 0;
-   pwm1 = 0;
-   pwm2 = 0;
+   shutdown();
    
    // Serial port declarations
    int shand; // shand is serial handle
@@ -155,8 +164,9 @@ int main(int argc, char *argv[])
    char buf2[16]; // Buffer that holds input from I2C pins
    float xa, ya, za; // X, Y, and Z angles
    
+   // Open file descriptor for adxl345 on I2C
+   // Also configure accelerometer options (see https://www.sparkfun.com/datasheets/Sensors/Accelerometer/ADXL345.pdf)
    fd = initAccelerometer();
-   //printf("In main fd is %d\n", fd);
    
    // Prevents the operating system from using the serial port
    if(system("sudo systemctl stop serial-getty@ttyAMA0.service") < 0)
@@ -195,6 +205,8 @@ int main(int argc, char *argv[])
 	   printf("Error code %d: Unable to assign serial handle\n", shand);
 	   return -1;
    }
+   
+   printf("Successfully started program \n");
    
    // Begin main loop
    while(1)
