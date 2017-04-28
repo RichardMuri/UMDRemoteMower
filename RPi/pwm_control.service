@@ -1,0 +1,10 @@
+[Unit]
+Description=Lawnmower control routine
+
+[Service]
+Type=oneshot
+ExecStart=usr/bin/pwm_control
+RemainAfterExit=yes
+
+[Install]
+WantedBy=mutli-user.target
