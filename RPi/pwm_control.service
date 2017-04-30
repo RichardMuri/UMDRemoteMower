@@ -1,10 +1,10 @@
 [Unit]
 Description=Lawnmower control routine
+After=multi-user.target
 
 [Service]
-Type=oneshot
-ExecStart=usr/bin/pwm_control
+ExecStart=/usr/bin/pwm_control
 RemainAfterExit=yes
 
 [Install]
-WantedBy=mutli-user.target
+WantedBy=custom.target
