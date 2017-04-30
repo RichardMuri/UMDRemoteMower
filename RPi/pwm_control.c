@@ -211,6 +211,9 @@ int main(int argc, char *argv[])
    // Begin main loop
    while(1)
    {
+	   // Store accelerometer angles in xa, ya, and za
+	   //printf("Reading accelerometer at file handle %d:\n", fd);
+	   readAccelerometer(fd, buf2, &xa, &ya, &za);
 	   
 	   // Check number of bytes available on serial port and read if >7
 	   // Output is stored in buf
@@ -220,11 +223,7 @@ int main(int argc, char *argv[])
 		   serRead(shand, &buf[0], BUF_SIZE);
 		   parseBuf(shand);
 	   }
-	   
-	   // Store accelerometer angles in xa, ya, and za
-	   //printf("Reading accelerometer at file handle %d:\n", fd);
-	   readAccelerometer(fd, buf2, &xa, &ya, &za);
-	   
+	   	   
 	   // Debugging information
 	   if(DEBUG_MODE)
 	   {
@@ -245,9 +244,9 @@ int main(int argc, char *argv[])
 	   gpioPWM(PWM_1, pwm1);
 	   gpioPWM(PWM_2, pwm2);
 	   
-	   buf[0] = '\0'; //clear the buffer
+	   buf[0] = '\0'; // clear the buffer
 	   
-	   usleep(1000); // wait for 1 ms 
+	   usleep(750); // wait for .75 ms before checking for new commands
 	   if(DEBUG_MODE)
 	   {
 		sleep(5); // brief pause for debugging

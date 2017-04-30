@@ -58,9 +58,8 @@ int initAccelerometer()
 
       exit(1);
    }
-   //printf("fd is %d\n", fd);
-   /* initialise ADXL345 */
 
+   /* initialise ADXL345 */
    selectDevice(fd, ADXL345_I2C_ADDR, "ADXL345");
 
    writeToDevice(fd, 0x2d, 0);  /* POWER_CTL reset */

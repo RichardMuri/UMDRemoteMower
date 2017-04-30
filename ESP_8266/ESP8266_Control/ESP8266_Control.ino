@@ -22,8 +22,8 @@ const unsigned int localUdpPort = 4210;  // local port to listen on
 
 os_timer_t myTimer;
 char reply[] = "ACK\r\n"; // Default response character
-char buf[10]; // Buffer to store client requests. See pwm_control.c for actual commands
-char accel_reading[1]; // Reading from accelerometer as communicated by Pi via serial
+char buf[10]; // Buffer to store client requests. See pwm_control.c for actual commands (This is from computer to ESP8266)
+char buf2[10]; // Buffer to store serial read information (This is from Pi to ESP8266)
 
 // Timer interrupt callback function
 // This function ensures a client is still connected;
@@ -41,12 +41,14 @@ void timerCallback(void *pArg) {
 		//Serial.println("Client is connected");
       return ;
 	  }
-	  else // No, set flag to trigger service routine in main loop
+    // No, set flag to trigger service routine in main loop
+	  else 
 	  {
-		FLAG = true;
+		  FLAG = true;
 	  }
 	}
-  else // Flag already set, do nothing more
+  // Flag already set, do nothing more
+  else 
   {
     return ;
   } 
@@ -142,6 +144,7 @@ void initHardware()
   Serial.begin(BAUD);
 }
 
+// Receive a packet, and pass it along to the Pi via serial
 void udpRecieveSend()
 {
   int packetSize = Udp.parsePacket();
