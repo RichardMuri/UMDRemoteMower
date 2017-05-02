@@ -215,6 +215,12 @@ int main(int argc, char *argv[])
 	   //printf("Reading accelerometer at file handle %d:\n", fd);
 	   readAccelerometer(fd, buf2, &xa, &ya, &za);
 	   
+	   // Angle out of range, turn mower off.
+	   if(abs(x) >= 40 || abs(y) >= 40)
+	   {
+		   shutdown();
+	   }
+	   
 	   // Check number of bytes available on serial port and read if >7
 	   // Output is stored in buf
 	   if(serDataAvailable(shand) >= 7)
